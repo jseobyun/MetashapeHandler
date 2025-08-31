@@ -4,10 +4,14 @@
 
 MetashapeHandler provides an easy-to-use interface for performing photogrammetric 3D reconstruction using Agisoft Metashape. 
 
-However, the tutorials are not provided well as much as the huge API document. Specially, importing pre-calibrated parameters as initial values is hard to implement because it is not officially supported.
-
-
 This wrapper supports both from-scratch reconstruction and reconstruction with pre-calibrated camera parameters (intrinsics and extrinsics) for helping beginner of MetaShape.
+
+
+
+<img src="./assets/example_from_scratch.png" alt="from_scratch" width="300" height="200"/>
+<img src="./assets/example_from_precalibrated.png" alt="from_scratch" width="300" height="200"/>
+
+Left image is from scratch and right image is from precalibrated settings. Thank you [Renderme360](https://renderme-360.github.io/index.html) !
 
 There can be somewhat ambiguous things, then plaese let me know!
 
@@ -197,14 +201,6 @@ output_dir/
 └── extrinsics/                 # Camera extrinsic parameters (4x4 matrices)
     └── {camera_name}_extrinsic.npy
 ```
-
-## Output Example
-Thank you [Renderme360](https://renderme-360.github.io/index.html) !
-
-<img src="./assets/example_from_scratch.png" alt="from_scratch" width="450" height="300"/>
-<img src="./assets/example_from_precalibrated.png" alt="from_scratch" width="450" height="300"/>
-
-Left image is from scratch and right image is from precalibrated settings.
 
 ## Key Components
 
