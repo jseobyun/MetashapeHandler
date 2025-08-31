@@ -8,9 +8,10 @@ This wrapper supports both from-scratch reconstruction and reconstruction with p
 
 
 
-<img src="./assets/example_from_scratch.png" alt="from_scratch" width="300" height="200"/>
-<img src="./assets/example_from_precalibrated.png" alt="from_scratch" width="300" height="200"/>
-
+<p align="center">
+  <img src="./assets/example_from_scratch.png" width="400" height="250"/>
+  <img src="./assets/example_from_precalibrated.png" width="400" height="250"/>
+</p>
 Left image is from scratch and right image is from precalibrated settings. Thank you [Renderme360](https://renderme-360.github.io/index.html) !
 
 There can be somewhat ambiguous things, then plaese let me know!
