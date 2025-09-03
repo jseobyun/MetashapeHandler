@@ -79,7 +79,7 @@ class Reconstructor():
         minutes, seconds = divmod(remainder, 60)
         logging.info(f"Processing time : {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d} hmr")
 
-    def run(self, img_inputs, save_dir, init_dir=None):
+    def run(self, img_inputs, save_dir, init_dir=None, share_intrinsic=False):
         start_time = time.time()
         '''
         Data inspection
@@ -125,22 +125,39 @@ class Reconstructor():
                 camera.sensor = sensor
         # initialization from scratch
         else:
-            for camera in chunk.cameras:
-                # Extract image name without extension
-                image_name = os.path.splitext(os.path.basename(camera.photo.path))[0]
+            if not share_intrinsic:
+                for camera in chunk.cameras:
+                    # Extract image name without extension
+                    image_name = os.path.splitext(os.path.basename(camera.photo.path))[0]
 
+                    # Create a new sensor
+                    sensor = chunk.addSensor()
+                    sensor.label = image_name
+                    sensor.type = ms.Sensor.Type.Frame
+
+                    # Get image dimensions using Pillow
+                    image_path = camera.photo.path
+                    with Image.open(image_path) as img:
+                        sensor.width, sensor.height = img.size
+
+                    # Assign the sensor to the camera
+                    camera.sensor = sensor
+            else:
                 # Create a new sensor
                 sensor = chunk.addSensor()
-                sensor.label = image_name
+                sensor.label = "shared"
                 sensor.type = ms.Sensor.Type.Frame
+                for camera in chunk.cameras:
+                    # Extract image name without extension
+                    image_name = os.path.splitext(os.path.basename(camera.photo.path))[0]                    
 
-                # Get image dimensions using Pillow
-                image_path = camera.photo.path
-                with Image.open(image_path) as img:
-                    sensor.width, sensor.height = img.size
+                    # Get image dimensions using Pillow
+                    image_path = camera.photo.path
+                    with Image.open(image_path) as img:
+                        sensor.width, sensor.height = img.size
 
-                # Assign the sensor to the camera
-                camera.sensor = sensor
+                    # Assign the sensor to the camera
+                    camera.sensor = sensor
 
         '''
         Metashape run

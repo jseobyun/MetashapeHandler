@@ -33,7 +33,7 @@ class Visualizer():
         cameras = []
         for extrinsic_name in extrinsic_names:
             T_gk = np.load(os.path.join(extrinsic_dir, extrinsic_name))
-            cameras.append(make_cam(T_gk, scale=0.1))
+            cameras.append(make_cam(T_gk, scale))
         return cameras
 
 
@@ -46,7 +46,7 @@ class Visualizer():
         mesh_coord_changer_path = os.path.join(save_dir, "mesh_coord_changer.npy")
         mesh = self.load_mesh(obj_path, mesh_coord_changer_path, compute_normals=True)
 
-        cameras = self.load_cameras(os.path.join(save_dir, "extrinsics"), scale=0.1)
+        cameras = self.load_cameras(os.path.join(save_dir, "extrinsics"), scale=1.0)
         origin = make_origin(np.eye(4), scale=1)
 
         if only_mesh:
