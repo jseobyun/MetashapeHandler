@@ -6,6 +6,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from datetime import datetime, timezone
+from src.utils import make_cam
 
 def create_intrinsic_xml(output_path, projection="frame", width=6000, height=4000,
                          f=9000.0, cx=0.0, cy=0.0, k1=0.0, k2=0.0, k3=0.0,
@@ -71,7 +72,7 @@ class Preprocessor():
     def __init__(self):
         pass
 
-    def run(self, calib_path, save_dir):
+    def run(self, calib_path, save_dir, format="renderme360"):
         intr_dir = os.path.join(save_dir, "intrinsics")
         extr_dir = os.path.join(save_dir, "extrinsics")
         os.makedirs(intr_dir, exist_ok=True)
@@ -80,39 +81,84 @@ class Preprocessor():
         with open(calib_path, 'r') as json_file:
             calib = json.load(json_file)
 
-        img_ids = list(calib.keys())
-        Ks = []
-        T_gks = []
-        for img_id in img_ids:
-            K = np.asarray(calib[img_id]["K"]).reshape(3, 3).astype(np.float32)
-            dist = np.asarray(calib[img_id]["dist"]).reshape(-1)
-            T_gk = np.asarray(calib[img_id]["T_gk"]).reshape(4, 4).astype(np.float32)
-            img_w = calib[img_id]["img_w"]
-            img_h = calib[img_id]["img_h"]
-            f = np.sqrt(K[0,0] * K[1,1])
-            cx = K[0,2]-img_w/2 # Metashape uses principal point in offset shape.
-            cy = K[1,2]-img_h/2 # Metashape uses principal point in offset shape.
-            k1 = dist[0]
-            k2 = dist[1]
-            p1 = dist[2]
-            p2 = dist[3]
-            k3 = dist[4]
+        ### ava256 format
+        if format=="ava256":
+            calib = calib["KRT"]            
+            for data in calib:
+                img_id = data["cameraId"]
+                K = np.asarray(data["K"]).reshape(3, 3).astype(np.float32).transpose().copy()
+                K[:2, :] /= 4
+                dist = np.asarray(data["distortion"])
+                T_kg = np.asarray(data["T"]).reshape(4,4).astype(np.float32).transpose().copy()
+                T_kg[:3, -1] /= 1000
+                T_gk = np.linalg.inv(T_kg)
+                img_w = 667
+                img_h = 1024
+                
 
-            save_intr_path = os.path.join(intr_dir, f"{img_id}_intrinsic.xml")
-            save_extr_path = os.path.join(extr_dir, f"{img_id}_extrinsic.npy")
+                f = np.sqrt(K[0,0] * K[1,1])
+                cx = K[0,2]-img_w/2 # Metashape uses principal point in offset shape.
+                cy = K[1,2]-img_h/2 # Metashape uses principal point in offset shape.
+                k1 = dist[0]
+                k2 = dist[1]
+                p1 = dist[2]
+                p2 = dist[3]
+                k3 = 0
 
-            create_intrinsic_xml(save_intr_path,
-                                 projection="frame",
-                                 width=img_w,
-                                 height=img_h,
-                                 f=f,
-                                 cx=cx,
-                                 cy=cy,
-                                 k1=k1,
-                                 k2=k2,
-                                 p1=p1,
-                                 p2=p2,
-                                 k3=k3)
-            np.save(save_extr_path, T_gk)
+                save_intr_path = os.path.join(intr_dir, f"cam{img_id}_intrinsic.xml")
+                save_extr_path = os.path.join(extr_dir, f"cam{img_id}_extrinsic.npy")
+
+                create_intrinsic_xml(save_intr_path,
+                                    projection="frame",
+                                    width=img_w,
+                                    height=img_h,
+                                    f=f,
+                                    cx=cx,
+                                    cy=cy,
+                                    k1=k1,
+                                    k2=k2,
+                                    p1=p1,
+                                    p2=p2,
+                                    k3=k3)
+                np.save(save_extr_path, T_gk)
+
+
+
+        ### renderme360 format
+        if format=="renderme360":
+            img_ids = list(calib.keys())
+            Ks = []
+            T_gks = []
+            for img_id in img_ids:
+                K = np.asarray(calib[img_id]["K"]).reshape(3, 3).astype(np.float32)
+                dist = np.asarray(calib[img_id]["dist"]).reshape(-1)
+                T_gk = np.asarray(calib[img_id]["T_gk"]).reshape(4, 4).astype(np.float32)
+                img_w = calib[img_id]["img_w"]
+                img_h = calib[img_id]["img_h"]
+                f = np.sqrt(K[0,0] * K[1,1])
+                cx = K[0,2]-img_w/2 # Metashape uses principal point in offset shape.
+                cy = K[1,2]-img_h/2 # Metashape uses principal point in offset shape.
+                k1 = dist[0]
+                k2 = dist[1]
+                p1 = dist[2]
+                p2 = dist[3]
+                k3 = dist[4]
+
+                save_intr_path = os.path.join(intr_dir, f"{img_id}_intrinsic.xml")
+                save_extr_path = os.path.join(extr_dir, f"{img_id}_extrinsic.npy")
+
+                create_intrinsic_xml(save_intr_path,
+                                    projection="frame",
+                                    width=img_w,
+                                    height=img_h,
+                                    f=f,
+                                    cx=cx,
+                                    cy=cy,
+                                    k1=k1,
+                                    k2=k2,
+                                    p1=p1,
+                                    p2=p2,
+                                    k3=k3)
+                np.save(save_extr_path, T_gk)
 
 

@@ -10,7 +10,7 @@ from src.visualizer import Visualizer
 if __name__ == "__main__":
 
     vis = Visualizer()
-    save_dir = "/home/jseob/Downloads/TEST/results/1115.CP790947"
+    save_dir = "/media/jseob/SSD_HEAD/ava256/20210817--0900--NRE683/decoder/results"
 
     vis.run(save_dir, only_mesh=False)
 

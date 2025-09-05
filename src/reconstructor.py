@@ -79,7 +79,7 @@ class Reconstructor():
         minutes, seconds = divmod(remainder, 60)
         logging.info(f"Processing time : {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d} hmr")
 
-    def run(self, img_inputs, save_dir, init_dir=None, share_intrinsic=False):
+    def run(self, img_inputs, save_dir, init_dir=None, share_intrinsic=False, vis=False, format="renderme360"):
         start_time = time.time()
         '''
         Data inspection
@@ -142,19 +142,34 @@ class Reconstructor():
 
                     # Assign the sensor to the camera
                     camera.sensor = sensor
-            else:
-                # Create a new sensor
-                sensor = chunk.addSensor()
-                sensor.label = "shared"
-                sensor.type = ms.Sensor.Type.Frame
+            else:                
+                img_sizes = []
+                sensors = []
+                
                 for camera in chunk.cameras:
                     # Extract image name without extension
+                    image_path = camera.photo.path
                     image_name = os.path.splitext(os.path.basename(camera.photo.path))[0]                    
 
-                    # Get image dimensions using Pillow
-                    image_path = camera.photo.path
-                    with Image.open(image_path) as img:
-                        sensor.width, sensor.height = img.size
+                    image = Image.open(image_path)
+                    img_size = image.size
+                    if img_size not in img_sizes:
+                        # new camera added
+                        img_sizes.append(img_size)
+                        sensor_idx = img_sizes.index(img_size)
+                        sensor = chunk.addSensor()
+                        sensor.label = f"shared{sensor_idx}"
+                        sensor.type = ms.Sensor.Type.Frame
+                        sensors.append(sensor)
+                        # Get image dimensions using Pillow
+                        image_path = camera.photo.path
+                        
+                        sensor.width, sensor.height = img_size
+                        print(f"{image_name} new : {sensor_idx} {img_size}")
+                    else: # sensor already exists
+                        sensor_idx = img_sizes.index(img_size)
+                        sensor = sensors[sensor_idx]
+                        print(f"{image_name} already : {sensor_idx} {img_size}")
 
                     # Assign the sensor to the camera
                     camera.sensor = sensor
@@ -211,6 +226,8 @@ class Reconstructor():
             T_gk[:3, -1] = center
 
             mesh_coord_changer = np.linalg.inv(T_gk)
+
+            vis_cams = []
             for cam_idx, camera in enumerate(chunk.cameras):
                 # Extract image name without extension
                 image_name = os.path.splitext(os.path.basename(camera.photo.path))[0]
@@ -218,6 +235,8 @@ class Reconstructor():
                 m = np.load(os.path.join(init_extr_dir, image_name + "_extrinsic.npy")).reshape(4, 4)
                 # transform pre-calibrated camera into chunk.region's coordinate system.
                 m = T_gk @ m
+                if vis:
+                    vis_cams.append(make_cam(m, scale=0.1))
                 transform = ms.Matrix([[m[0, 0], m[0, 1], m[0, 2], m[0, 3]],
                                        [m[1, 0], m[1, 1], m[1, 2], m[1, 3]],
                                        [m[2, 0], m[2, 1], m[2, 2], m[2, 3]],
@@ -226,10 +245,24 @@ class Reconstructor():
                 camera.transform = transform
 
             # update region.center and size to cover pre-calibrated camera system in chunk.region coordinate system.
-            cam_center = 0
-            for camera in chunk.cameras:
-                cam_center += np.asarray(camera.transform).reshape(4, 4)[:3, -1]
-            cam_center = cam_center / len(chunk.cameras)
+
+            ### foor dorm shape camera settings : renderme360
+            if format == "renderme360":
+                cam_center = 0
+                for camera in chunk.cameras:
+                    cam_center += np.asarray(camera.transform).reshape(4, 4)[:3, -1]
+                cam_center = cam_center / len(chunk.cameras)
+            ### ava256
+            elif format == "ava256":
+                cam_center = np.array([0,0,1], dtype=np.float32).reshape(3,1)
+                cam_center = np.matmul(T_gk[:3, :3], cam_center) + T_gk[:3, -1:]
+                cam_center = cam_center.reshape(-1)
+
+            if vis:
+                cam_origin = np.eye(4)
+                cam_origin[:3,-1] = cam_center
+                vis_cams.append(make_origin(cam_origin, scale=1.0))
+                o3d.visualization.draw_geometries(vis_cams)
 
             region.center = ms.Vector([cam_center[0], cam_center[1], cam_center[2]])
             region.size = ms.Vector([self.bbox_dim[0], self.bbox_dim[1], self.bbox_dim[2]])
@@ -255,16 +288,27 @@ class Reconstructor():
         os.makedirs(intr_dir, exist_ok=True)
         os.makedirs(extr_dir, exist_ok=True)
 
-        for sensor in chunk.sensors:
+
+        # for sensor in chunk.sensors:
+        #     if sensor.label == "unknown":
+        #         continue
+        #     calib_path = os.path.join(intr_dir, f"{sensor.label}_intrinsic.xml")
+        #     sensor.calibration.save(calib_path)
+
+        for camera in chunk.cameras:
+            sensor = camera.sensor
             if sensor.label == "unknown":
                 continue
-            calib_path = os.path.join(intr_dir, f"{sensor.label}_intrinsic.xml")
+            camera_label = os.path.splitext(os.path.basename(camera.photo.path))[0]
+            calib_path = os.path.join(intr_dir, f"{camera_label}_intrinsic.xml")
             sensor.calibration.save(calib_path)
 
         for camera in chunk.cameras:
             transform_path = os.path.join(extr_dir, f"{camera.label}_extrinsic.npy")
             transform = mesh_coord_changer @ np.asarray(camera.transform).reshape(4, 4)
             np.save(transform_path, transform)
+
+            
 
         mesh_path = os.path.join(save_dir, "mesh.obj")
         np.save(os.path.join(save_dir, "mesh_coord_changer.npy"), mesh_coord_changer)

@@ -46,7 +46,7 @@ class Visualizer():
         mesh_coord_changer_path = os.path.join(save_dir, "mesh_coord_changer.npy")
         mesh = self.load_mesh(obj_path, mesh_coord_changer_path, compute_normals=True)
 
-        cameras = self.load_cameras(os.path.join(save_dir, "extrinsics"), scale=1.0)
+        cameras = self.load_cameras(os.path.join(save_dir, "extrinsics"), scale=0.1)
         origin = make_origin(np.eye(4), scale=1)
 
         if only_mesh:
